@@ -1,0 +1,137 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>瑜珈課堂通知系統</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label, select, input, textarea, button { display: block; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h2>🧘‍♀️ 瑜珈課堂通知系統</h2>
+
+  <button onclick="handleAuthClick()">登入 Google</button>
+
+  <h3>建立新課堂事件</h3>
+  <label>選擇導師：</label>
+  <select id="teacherSelect">
+    <option value="yoga1@example.com">陳老師</option>
+    <option value="yoga2@example.com">李老師</option>
+    <option value="yoga3@example.com">王老師</option>
+  </select>
+
+  <label>課堂類型：</label>
+  <select id="classType">
+    <option value="Hatha Yoga">Hatha Yoga</option>
+    <option value="Yin Yoga">Yin Yoga</option>
+    <option value="Vinyasa Yoga">Vinyasa Yoga</option>
+  </select>
+
+  <label>課堂日期與時間：</label>
+  <input type="datetime-local" id="classTime">
+
+  <label>地點：</label>
+  <input type="text" id="location" placeholder="例如：銅鑼灣分店">
+
+  <button onclick="createEvent()">建立事件</button>
+
+  <h3>即將舉行的課堂</h3>
+  <div id="eventLink"></div>
+<ul id="eventList"></ul>
+
+  <script>
+    const CLIENT_ID = 'YOUR_CLIENT_ID';
+    const API_KEY = 'YOUR_API_KEY';
+    const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+    function handleAuthClick() {
+      gapi.load('client:auth2', () => {
+        gapi.client.init({
+          apiKey: API_KEY,
+          clientId: CLIENT_ID,
+          scope: SCOPES,
+        }).then(() => {
+          gapi.auth2.getAuthInstance().signIn().then(() => {
+            alert('登入成功！');
+            listEvents();
+          });
+        });
+      });
+    }
+
+    function createEvent() {
+      const teacherEmail = document.getElementById('teacherSelect').value;
+      const classType = document.getElementById('classType').value;
+      const classTime = document.getElementById('classTime').value;
+      const location = document.getElementById('location').value;
+
+      const startDateTime = new Date(classTime);
+      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
+
+      const event = {
+        summary: classType + ' 課堂通知',
+        location: location,
+        description: '請準時出席 ' + classType + ' 課堂',
+        start: {
+          dateTime: startDateTime.toISOString(),
+          timeZone: 'Asia/Hong_Kong',
+        },
+        end: {
+          dateTime: endDateTime.toISOString(),
+          timeZone: 'Asia/Hong_Kong',
+        },
+        attendees: [{ email: teacherEmail }],
+        reminders: { useDefault: true },
+      };
+
+      gapi.client.calendar.events.insert({
+        calendarId: 'primary',
+        resource: event,
+        sendUpdates: 'all',
+      }).then((response) => {
+        document.getElementById('eventLink').innerHTML = `事件已建立！<br><a href='${response.result.htmlLink}' target='_blank'>查看事件詳情</a>`;
+        listEvents();
+      });
+    }
+
+    function listEvents() {
+      const now = new Date().toISOString();
+      gapi.client.calendar.events.list({
+        calendarId: 'primary',
+        timeMin: now,
+        showDeleted: false,
+        singleEvents: true,
+        maxResults: 10,
+        orderBy: 'startTime',
+      }).then((response) => {
+        const events = response.result.items;
+        const eventList = document.getElementById('eventList');
+        eventList.innerHTML = '';
+
+        events.forEach(event => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <strong>${event.summary}</strong><br>
+            ${event.start.dateTime || event.start.date} - ${event.location || '未指定地點'}<br>
+            <button onclick="deleteEvent('${event.id}')">刪除</button>
+          `;
+          eventList.appendChild(li);
+        });
+      });
+    }
+
+    function deleteEvent(eventId) {
+      gapi.client.calendar.events.delete({
+        calendarId: 'primary',
+        eventId: eventId,
+      }).then(() => {
+        alert('事件已刪除');
+        listEvents();
+      });
+    }
+  </script>
+</body>
+</html>
